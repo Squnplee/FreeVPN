@@ -5,19 +5,8 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
-BASE_URL = "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/"
-
-SOURCES = {
-    "BLACK_VLESS_RUS.txt": True,
-    "BLACK_VLESS_RUS_mobile.txt": True,
-    "BLACK_SS+All_RUS.txt": True,
-    
-    "WHITE-CIDR-RU-all.txt": True,
-    "WHITE-CIDR-RU-checked.txt": True,
-    "WHITE-SNI-RU-all.txt": True,
-    "Vless-Reality-White-Lists-Rus-Mobile.txt": True,
-    "Vless-Reality-White-Lists-Rus-Mobile-2.txt": True,
-}
+REPO_API = "https://api.github.com/repos/igareck/vpn-configs-for-russia/contents/"
+BASE_RAW = "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/"
 
 OUTPUT_FILE = "all_configs.txt"
 
@@ -33,9 +22,30 @@ TIMEOUT = 1.5
 MAX_THREADS = 50
 
 
+# ---------- получаем ВСЕ txt файлы ----------
+def get_txt_files():
+    try:
+        r = requests.get(REPO_API, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+
+        files = [
+            item["name"]
+            for item in data
+            if item["name"].endswith(".txt")
+        ]
+
+        print(f"[+] Найдено txt файлов: {len(files)}")
+        return files
+
+    except Exception as e:
+        print("[!] Ошибка получения списка файлов:", e)
+        return []
+
+
 # ---------- скачивание ----------
 def download_file(filename):
-    url = BASE_URL + filename
+    url = BASE_RAW + filename
     try:
         print(f"[+] Качаю {filename}")
         r = requests.get(url, timeout=10)
@@ -68,11 +78,9 @@ def parse_host_port(config):
             data = base64.b64decode(config[8:] + "==").decode()
             j = json.loads(data)
             return j.get("add"), int(j.get("port"))
-
         else:
             parsed = urlparse(config)
             return parsed.hostname, parsed.port
-
     except:
         return None, None
 
@@ -93,24 +101,22 @@ def check_config(config):
 
 # ---------- main ----------
 def main():
+    files = get_txt_files()
+
     all_configs = []
 
-    for filename, enabled in SOURCES.items():
-        if not enabled:
-            continue
-
+    for filename in files:
         text = download_file(filename)
         configs = extract_configs(text)
 
         print(f"{filename}: {len(configs)}")
         all_configs.extend(configs)
 
-    # удаляем дубликаты
+    # убираем дубликаты
     all_configs = list(dict.fromkeys(all_configs))
 
     print(f"\nВсего до проверки: {len(all_configs)}")
 
-    # ⚡ проверка
     alive = []
 
     with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
