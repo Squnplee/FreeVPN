@@ -1,0 +1,150 @@
+# VPN Config Manager — конфиг пользователя
+# Документация: все поля опциональны, если не указано — используются дефолты
+
+# ─── Источники ───────────────────────────────────────────────────────────────
+# Стратегии:
+#   api     — GitHub API: получаем список файлов, потом качаем каждый
+#   direct  — прямые URL: качаем конкретные файлы
+#   base64  — как direct, но файл содержит base64-encoded данные
+#   yaml    — YAML/JSON файл с полем 'proxies' (Clash-формат)
+sources:
+  - name: "igareck/vpn-configs-for-russia"
+    enabled: true
+    strategy: api
+    api_url: "https://api.github.com/repos/igareck/vpn-configs-for-russia/contents/"
+    raw_base: "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/"
+    file_extensions: [".txt"]
+    # subdirs: []  # если нужно смотреть в поддиректориях
+
+  - name: "AvenCores/goida-vpn-configs"
+    enabled: true
+    strategy: api
+    api_url: "https://api.github.com/repos/AvenCores/goida-vpn-configs/contents/"
+    raw_base: "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/main/"
+    file_extensions: [".txt"]
+
+  - name: "ebrasha/free-v2ray-public-list"
+    enabled: true
+    strategy: api
+    api_url: "https://api.github.com/repos/ebrasha/free-v2ray-public-list/contents/"
+    raw_base: "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/main/"
+    file_extensions: [".txt"]
+
+  - name: "mahdibland/V2RayAggregator"
+    enabled: true
+    strategy: direct
+    urls:
+      - "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/Eternity"
+      - "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/Eternity.txt"
+
+  - name: "barry-far/V2ray-Config"
+    enabled: true
+    strategy: direct
+    urls:
+      - "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/All_Configs_Sub.txt"
+      - "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/vless.txt"
+      - "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/vmess.txt"
+      - "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/trojan.txt"
+
+  - name: "MatinGhanbari/v2ray-configs"
+    enabled: true
+    strategy: direct
+    urls:
+      - "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/all.txt"
+
+  - name: "Epodonios/v2ray-configs"
+    enabled: true
+    strategy: direct
+    urls:
+      - "https://raw.githubusercontent.com/Epodonios/v2ray-configs/main/All_Configs_Sub.txt"
+
+  - name: "ermaozi/get_subscribe"
+    enabled: true
+    strategy: base64
+    urls:
+      - "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt"
+
+  - name: "NiREvil/vless"
+    enabled: true
+    strategy: base64
+    urls:
+      - "https://raw.githubusercontent.com/NiREvil/vless/main/sub/sing-box"
+
+  - name: "anaer/Sub"
+    enabled: true
+    strategy: base64
+    urls:
+      - "https://raw.githubusercontent.com/anaer/Sub/main/sub.txt"
+
+  # Пример пользовательского источника:
+  # - name: "my-custom-source"
+  #   enabled: false
+  #   strategy: direct
+  #   urls:
+  #     - "https://example.com/my-configs.txt"
+
+# ─── GitHub токен (для обхода rate limit 60→5000 req/h) ─────────────────────
+github:
+  token: ""
+  # Получить бесплатно: https://github.com/settings/tokens (без прав — только public)
+
+# ─── Протоколы ───────────────────────────────────────────────────────────────
+protocols:
+  # Режим: whitelist — только указанные; blacklist — все кроме указанных; auto — любые ://
+  mode: whitelist
+  # Список разрешённых протоколов (только для whitelist):
+  allowed:
+    - vless
+    - vmess
+    - trojan
+    - ss
+    - ssr
+    - tuic
+    - hysteria
+    - hysteria2
+    - hy2
+  # Список запрещённых (только для blacklist):
+  # denied: []
+
+# ─── TCP-чекер (первый этап — парсер) ───────────────────────────────────────
+checker:
+  enabled: true
+  timeout: 1.5      # секунды
+  max_threads: 50
+  # Сохранять raw_alive даже при отключённом чекере:
+  save_unchecked: true
+
+# ─── Фильтры (второй этап — применяются к raw_alive при запросе) ────────────
+filters:
+  # Фильтрация по ключевым словам в строке конфига
+  keyword_blacklist:
+    enabled: true
+    case_sensitive: false
+    words:
+      - russia
+      - moscow
+      - москва
+      - россия
+      - russian
+      - "🇷🇺"
+      - "-ru-"
+      - ".ru:"
+
+  # Фильтрация по стране через GeoIP (требует geoip2 + базу данных)
+  # geoip:
+  #   enabled: false
+  #   deny_countries: [RU, BY, IR]
+  #   db_path: "GeoLite2-Country.mmdb"
+
+  # Лимит на количество конфигов в выдаче
+  max_configs: 0   # 0 = без лимита
+
+# ─── Локальный сервер (subscription endpoint) ────────────────────────────────
+server:
+  host: "0.0.0.0"
+  port: 8000
+  path: "/sub"
+  # Формат ответа: base64 (стандарт V2Ray) или plain
+  response_format: base64
+  # Применять фильтры при каждом запросе к серверу:
+  apply_filters_on_request: true
